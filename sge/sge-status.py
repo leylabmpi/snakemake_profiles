@@ -24,7 +24,8 @@ def qstat_check(jobid, regex):
 
 def qacct_check(jobid, max_lines):
     acct_file = '/var/lib/gridengine/default/common/accounting'
-    cmd = 'tac {acct_file} | awk -F: -v id={jobid}'.format(acct_file=acct_file, jobid=jobid)
+    cmd = 'tail -n {max_lines} {acct_file} | tac | awk -F: -v id={jobid}'
+    cmd = cmd.format(max_lines=max_lines, acct_file=acct_file, jobid=jobid)
     cmd += " '{if ($6 == id) {print $0; exit 0}}'"
     p = Popen([cmd], stdout=PIPE, shell=True)
     output, err = p.communicate()
@@ -52,7 +53,7 @@ try:
     # checking qstat
     qstat_check(jobid, regex)
     # if not listed via qstat, parsing sge accounting info
-    qacct_check(jobid, 10000)
+    qacct_check(jobid, 1000)
     
 except KeyboardInterrupt:
     print("failed")
