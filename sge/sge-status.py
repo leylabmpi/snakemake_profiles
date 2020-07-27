@@ -3,7 +3,7 @@ import sys
 import time
 import re
 import subprocess
-from subprocess import Popen, PIPE
+from subprocess import Popen, PIPE, DEVNULL
 
 
 #-- functions --#
@@ -22,7 +22,7 @@ def qstat_check(jobid, regex):
             p.stdout.close()
             exit(0)
 
-def qacct_check(jobid, max_lines):
+def acct_check(jobid, max_lines):
     acct_file = '/var/lib/gridengine/default/common/accounting'
     cmd = 'tail -n {max_lines} {acct_file} | tac | awk -F: -v id={jobid}'
     cmd = cmd.format(max_lines=max_lines, acct_file=acct_file, jobid=jobid)
@@ -43,9 +43,22 @@ def qacct_check(jobid, max_lines):
                 print('failed')
             p.stdout.close()
             exit(0)
-    print('running')
 
 
+def qacct_check(jobid):
+    regex = re.compile(r' +')
+    cmd = 'qacct -j {jobid}'.format(jobid=jobid)
+    p = Popen([cmd], stdout=PIPE, shell=True, stderr=DEVNULL)
+    output, err = p.communicate()
+    for x in output.decode().split('\n'):
+        x = regex.split(x)
+        if x[0] == 'exit_status':
+            if x[1] == '0':
+                print('success')
+            else:
+                print('failed')            
+            exit(0)
+            
 #-- main --#
 jobid = sys.argv[1]
 regex = re.compile(r' +')
@@ -53,7 +66,10 @@ try:
     # checking qstat
     qstat_check(jobid, regex)
     # if not listed via qstat, parsing sge accounting info
-    qacct_check(jobid, 1000)
+    acct_check(jobid, 1000)
+    # if not listed at the end of the acct file, trying qacct
+    qacct_check(jobid)
+    print('running')
     
 except KeyboardInterrupt:
     print("failed")
